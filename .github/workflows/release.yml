@@ -1,0 +1,37 @@
+name: Release
+
+# Builds and publishes a release, then deploys it via the shared playbook in
+# uhlig-it/infrastructure. The deploy job needs the `vault_password` and
+# `tailscale_authkey` secrets (set at the org level; see the infrastructure
+# README). The SSH deploy key is read from the vault, so no `ssh_key` secret
+# is needed.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: release
+    uses: uhlig-it/infrastructure/.github/workflows/deploy.yml@main
+    with:
+      service: mosquitto-exporter
+    secrets: inherit
